@@ -47,7 +47,8 @@ class Scorer():
                 normalize_to_unit: bool = True,
                 keepdim: bool = False,
                 batch_size: int = 64,
-                max_length: int = 128) -> Union[np.ndarray, torch.Tensor]:
+                max_length: int = 128,
+                is_source: bool = False) -> Union[np.ndarray, torch.Tensor]:
 
         target_device = self.device if device is None else device
         self.model = self.model.to(target_device)
@@ -60,25 +61,46 @@ class Scorer():
         embedding_list = [] 
         with torch.no_grad():
             total_batch = len(sentence) // batch_size + (1 if len(sentence) % batch_size > 0 else 0)
-            for batch_id in tqdm(range(total_batch)):
-                inputs = self.tokenizer(
-                    sentence[batch_id*batch_size:(batch_id+1)*batch_size], 
-                    padding=True, 
-                    truncation=True, 
-                    max_length=max_length, 
-                    return_tensors="pt"
-                )
-                inputs = {k: v.to(target_device) for k, v in inputs.items()}
-                outputs = self.model(**inputs, return_dict=True)
-                if self.pooler == "cls":
-                    embeddings = outputs.pooler_output
-                elif self.pooler == "cls_before_pooler":
-                    embeddings = outputs.last_hidden_state[:, 0]
-                else:
-                    raise NotImplementedError
-                if normalize_to_unit:
-                    embeddings = embeddings / embeddings.norm(dim=1, keepdim=True)
-                embedding_list.append(embeddings.cpu())
+            if is_source:
+                for batch_id in tqdm(range(total_batch)):
+                    inputs = self.tokenizer(
+                        sentence[batch_id*batch_size:(batch_id+1)*batch_size], 
+                        padding=True, 
+                        truncation=True, 
+                        max_length=max_length, 
+                        return_tensors="pt"
+                    )
+                    inputs = {k: v.to(target_device) for k, v in inputs.items()}
+                    outputs = self.model(**inputs, return_dict=True)
+                    if self.pooler == "cls":
+                        embeddings = outputs.pooler_output
+                    elif self.pooler == "cls_before_pooler":
+                        embeddings = outputs.last_hidden_state[:, 0]
+                    else:
+                        raise NotImplementedError
+                    if normalize_to_unit:
+                        embeddings = embeddings / embeddings.norm(dim=1, keepdim=True)
+                    embedding_list.append(embeddings.cpu())
+            else:
+                for batch_id in range(total_batch):
+                    inputs = self.tokenizer(
+                        sentence[batch_id*batch_size:(batch_id+1)*batch_size], 
+                        padding=True, 
+                        truncation=True, 
+                        max_length=max_length, 
+                        return_tensors="pt"
+                    )
+                    inputs = {k: v.to(target_device) for k, v in inputs.items()}
+                    outputs = self.model(**inputs, return_dict=True)
+                    if self.pooler == "cls":
+                        embeddings = outputs.pooler_output
+                    elif self.pooler == "cls_before_pooler":
+                        embeddings = outputs.last_hidden_state[:, 0]
+                    else:
+                        raise NotImplementedError
+                    if normalize_to_unit:
+                        embeddings = embeddings / embeddings.norm(dim=1, keepdim=True)
+                    embedding_list.append(embeddings.cpu())
         embeddings = torch.cat(embedding_list, 0)
         
         if single_sentence and not keepdim:
@@ -104,7 +126,7 @@ class Scorer():
             sentences_or_file_path = sentences
         
         logger.info("Encoding embeddings for sentences...")
-        embeddings = self.encode(sentences_or_file_path, device=device, batch_size=batch_size, normalize_to_unit=True, return_numpy=True)
+        embeddings = self.encode(sentences_or_file_path, device=device, batch_size=batch_size, normalize_to_unit=True, return_numpy=True, is_source=True)
 
         logger.info("Building index...")
         self.index = {"sentences": sentences_or_file_path}
