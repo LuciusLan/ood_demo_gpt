@@ -1,5 +1,6 @@
 from typing import Union
 import logging
+import random
 
 import numpy as np
 import torch
@@ -188,4 +189,27 @@ class Scorer():
         elif top_k < 0:
             id_and_score = sorted(id_and_score, key=lambda x: x[1], reverse=True)[top_k:]
         results = [(self.index["sentences"][idx], score) for idx, score in id_and_score]
+        return results
+
+    def search_random(self, queries: Union[str, list[str]], 
+                source_len: int,
+                device: str = None, 
+                top_k: int = 5,
+                ) -> Union[list[tuple[str, float]], list[list[tuple[str, float]]]]:
+        
+
+        if isinstance(queries, list):
+            combined_results = []
+            for query in queries:
+                results = self.search_random(query, source_len, device, top_k)
+                combined_results.append(results)
+            return combined_results
+        
+        '''similarities = self.similarity(queries, self.index["index"]).tolist()
+        id_and_score = []
+        for i, s in enumerate(similarities):
+            if s >= threshold:
+                id_and_score.append((i, s))'''
+
+        results = random.sample(list(range(source_len)), top_k)
         return results

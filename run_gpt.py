@@ -15,6 +15,11 @@ import openai
 
 MODEL = 'gpt-3.5-turbo'
 
+random.seed(2023)
+
+pick_sample = random.sample(list(range(5900)), 300)
+
+
 def completePrompt(p, model, instruction):
     response = openai.Completion.create(
         model=model,
@@ -82,6 +87,7 @@ resFile.touch(exist_ok=False)
 resFile.write_text("File,Iteration,Total,VPE Correct,NO VPE Correct\n")
 
 def label2text(label):
+    # 0 for neg, 1 for neutral, 2 for pos
     if label == '0\n':
         return 'negative'
     elif label == '1\n':
@@ -95,18 +101,16 @@ for iteration in range(1):
 
     # RUN THROUGH EXAMPLE FILES
         
-    with open('book2beauty_bot5.pkl', 'rb') as source:
-        examples = pickle.load(source)
+    with open('./data/rand/book2beauty_rand.json', 'r') as source:
+        examples = json.load(source)
 
         print("Source: BOOK, Target: BEAUTY")
-        
-        examples = random.sample(examples, 500)
 
         correct = 0
 
         # RUN THROUGH EXAMPLES
-        for j, e in tqdm(enumerate(examples), total=len(examples)):
-
+        for i in tqdm(pick_sample, total=len(pick_sample)):
+            e = examples[i]
             prefix = f"Given the input sentence, assign a sentiment label from ['positive', 'neutral', 'negative']. Give your response with the answer label only. Do not include irrelevant text. \nFollowing are a few demonstrations on how to assign the sentiment label:\n"
             demo_text = ''
             for demo in e['source']:
@@ -120,5 +124,5 @@ for iteration in range(1):
                 correct += 1
 
         with resFile.open("a") as f:
-            f.write(f'Accuracy: {correct/500}')
+            f.write(f'Accuracy: {correct/300}')
     print(f"iteration {iteration}")
